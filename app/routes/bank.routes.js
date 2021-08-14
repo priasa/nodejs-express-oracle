@@ -4,5 +4,6 @@ module.exports = app => {
     // Retrieve all Customers
     app.get("/banks", banks.findAll);
     app.get("/banks/:kode", banks.findByKode);
+    app.post("/banks/findByKodePagination", banks.findByKodePagination);
 
 };
