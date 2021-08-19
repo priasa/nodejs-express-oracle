@@ -64,24 +64,38 @@ exports.findByKodePagination = async (req, res) => {
     const pageSize = req.body.pageSize;
 
     let connection;
-    let result = [];
+    let result1 = [];
+    let totalPageNumber = 0;
+    let totalRecord = 0;
     try {
         connection = await oracledb.getConnection();
-        result = await connection.execute(
-            ' SELECT * FROM ' +
-            ' ( ' +
-            '   SELECT a.*, rownum r__ ' +
-            '   FROM ' +
-            '   ( ' +
-            '       SELECT * FROM ADM_R_BANK WHERE kode LIKE :kode order by kode' +
-            '   ) a ' +
-            '   WHERE rownum < ((:pageNumber * :pageSize) + 1 ) ' +
-            ' ) ' +
-            ' WHERE r__ >= (((:pageNumber - 1) * :pageSize) + 1)',
+        result1 = await connection.execute(
+            ' SELECT o.* FROM ADM_R_BANK o WHERE KODE LIKE :kode ' + 
+            ' ORDER BY kode ASC OFFSET (:pagenumber -1) * :pagesize rows fetch next :pagesize rows only ',
             [kode, pageNumber, pageSize],
             { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
-        res.status(200).json(result.rows);
+
+        const result2 = await connection.execute(
+            ' SELECT DISTINCT  ceil(count(*) over () / :pagesize) total_page, count(*) over () total_record ' +
+            ' FROM   ADM_R_BANK o ' +
+            ' WHERE  KODE LIKE :kode ',
+            [pageSize, kode],
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        console.log(result2.rows)
+        if (result2.rows) {
+            totalPageNumber = result2.rows[0].TOTAL_PAGE;
+            totalRecord = result2.rows[0].TOTAL_RECORD;
+        }
+        var result0 = {
+            pageNumber: pageNumber,
+            totalPageNumber: totalPageNumber,
+            pageSize: pageSize,
+            totalRecord: totalRecord,
+            data: result1.rows
+        }
+        res.status(200).json(result0);
     } catch (err) {
         console.error(err);
         res.status(500).send({
